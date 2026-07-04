@@ -4,7 +4,11 @@ const WORK_DIR = path.resolve(process.cwd())
 export const  CONFIG = {
   agentMaxSteps: 100, // 智能体允许的最大步数
   backgroundWarmupMs:8000, // 后台进程预热时间
+  backgroundLogPreviewLines: 50, // task_logs 返回的最大长度
 }
+
+// 存储所有的后台拉起的子进程的 pid
+export const backgroundProcess = new Map()
 
 function isDescendantOrSameDirectory(candidatePath) {
   const targetAbs = path.resolve(candidatePath)

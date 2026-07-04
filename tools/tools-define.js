@@ -79,9 +79,14 @@ const MODEL_TOOL_DEFINATIONS = [
     type: 'function',
     function: {
       name: 'runCommand',
-      description: `在终端执行命令，短命令会阻塞直至结束。。。
-      重要：命令会在当前目录中执行，尽量不要使用 cd 命令切换目录
+      description: `在终端执行命令，短命令会阻塞直至结束，疑似开发服务器等长时运行命令会在后台拉起\n
+      重要：命令会在当前目录中执行，尽量不要使用 cd 命令切换目录\n
       常规： install/build/test等同步执行，stdout和stderr汇总返回 \n 
+      常驻命令： pnpm dev/ npm start / flask run / uvicorn 等后台运行任务，约 8 秒后回传PID与启动阶段日志 \n 
+      后台子命令：\n
+          task_list       列出已登记的后台任务\n
+          task_logs <pid> 拉取该pid最近若干行日志\n
+          task_stop <pid> 结束该后台任务\n
       `,
       parameters: {
         type: 'object',
