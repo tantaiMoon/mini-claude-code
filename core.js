@@ -1,8 +1,12 @@
 import { OpenAI } from 'openai'
-import { MODEL_TOOL_DEFINATIONS, toolHandleByName } from './tools/tools-define.js'
+import {
+  getActiveModelDefinitions,
+  toolHandleByName
+} from './tools/tools-define.js'
 // 加载 env 配置文件，并允许覆盖已存在的环境变量
 import dotenv from 'dotenv'
 import { CONFIG } from './utils/index.js'
+import { callMcpTool, isMcpTool } from './tools/mcp_client.js'
 
 dotenv.config({ override: true })
 
@@ -29,11 +33,17 @@ export async function executeSingleToolCall(toolCallPayload) {
   // 根据工具名称获取对应的处理器
   const handler = toolHandleByName[name]
   let textResult
-  try {
-    textResult = handler ? await handler.run(parsedArgs) : `没有找到工具： ${ name }`
-  } catch (e) {
-    textResult = '工具执行异常：' + e.message
+  if (isMcpTool(name)) {
+  //   是不是 MCP 服务器工具,如果是则尝试调用MCP服务器工具
+    textResult = await callMcpTool(name, parsedArgs)
+  } else {
+    try {
+      textResult = handler ? await handler.run(parsedArgs) : `没有找到工具： ${ name }`
+    } catch (e) {
+      textResult = '工具执行异常：' + e.message
+    }
   }
+
 
   // 构建并返回本次工具调用的完整回复消息对象
   return {
@@ -43,6 +53,7 @@ export async function executeSingleToolCall(toolCallPayload) {
     content: textResult == null ? '工具未返回内容' : String(textResult)
   }
 }
+
 
 // 定义异步函数，驱动智能体连续推理直到获得文字回复或超过最大步数
 export async function runAgentUtilReplyMaxSteps(messages) {
@@ -55,7 +66,7 @@ export async function runAgentUtilReplyMaxSteps(messages) {
     const completion = await openaiClient.chat.completions.create({
       model: 'deepseek-v4-pro',
       messages: messages,
-      tools: MODEL_TOOL_DEFINATIONS, // 给大模型的工具函数定义
+      tools: getActiveModelDefinitions(), // 给大模型的工具函数定义
       tool_choice: 'auto' // 工具的选择方式为自动
     })
     // 获取助手回复的消息

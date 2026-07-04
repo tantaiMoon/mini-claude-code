@@ -4,10 +4,11 @@ import { EditFile } from './edit-file.js';
 import { ListDir } from './list-dir.js';
 import { CreateDirectory } from './create-dir.js';
 import { RunCommand } from './run-command.js'
+import { getMcpOpenAiTools } from './mcp_client.js'
 
 // 工具的 Schema，描述每个工具的用途和参数结构
-
-const MODEL_TOOL_DEFINATIONS = [
+// 内置的自带工具列表
+const LOCAL_MODEL_TOOL_DEFINATIONS = [
   {
     type: 'function',
     function: {
@@ -97,6 +98,15 @@ const MODEL_TOOL_DEFINATIONS = [
   }
 ]
 
+let activeModelDefinitions = [...LOCAL_MODEL_TOOL_DEFINATIONS]
+
+function  refreshModelToolDefinitions(){
+  activeModelDefinitions = [...LOCAL_MODEL_TOOL_DEFINATIONS, ...getMcpOpenAiTools()]
+}
+
+function getActiveModelDefinitions(){
+  return activeModelDefinitions
+}
 
 const toolHandleByName = {
   readFile: new ReadText(),
@@ -109,5 +119,7 @@ const toolHandleByName = {
 
 export {
   toolHandleByName,
-  MODEL_TOOL_DEFINATIONS
+  refreshModelToolDefinitions,
+  getActiveModelDefinitions,
+  LOCAL_MODEL_TOOL_DEFINATIONS
 }
