@@ -68,7 +68,6 @@ export async function runAgentUtilReplyMaxSteps(messages) {
     if (!calls || calls.length === 0) {
       return assistantMessage
     }
-    // 并发执行每个工具调用，等待所有的工具调用结果返回
     // 判断是否存在命令执行，决定是串行调用还是并行调用
     const sequentail = calls.some(call => call.function.name === 'runCommand')
     let toolResponses = []
@@ -79,6 +78,7 @@ export async function runAgentUtilReplyMaxSteps(messages) {
         toolResponses.push(res)
       }
     } else {
+      // 并发执行每个工具调用，等待所有的工具调用结果返回
       //并发执行
       toolResponses = await Promise.all(calls.map(executeSingleToolCall))
     }
