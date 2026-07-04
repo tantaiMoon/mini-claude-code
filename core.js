@@ -7,8 +7,8 @@ import { CONFIG } from './utils/index.js'
 dotenv.config({ override: true })
 
 const openaiClient = new OpenAI({
-  baseURL: process.env.DS_URL,
-  apiKey: process.env.DS_API_KEY
+  baseURL: process.env.BASE_URL,
+  apiKey: process.env.API_KEY
 })
 
 // 定义异步函数，用于执行一次工具调用
