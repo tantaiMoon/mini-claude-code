@@ -5,6 +5,7 @@ import { ListDir } from './list-dir.js';
 import { CreateDirectory } from './create-dir.js';
 import { RunCommand } from './run-command.js'
 import { getMcpOpenAiTools } from './mcp_client.js'
+import { ReadSkill } from './read-skill.js'
 
 // 工具的 Schema，描述每个工具的用途和参数结构
 // 内置的自带工具列表
@@ -95,6 +96,19 @@ const LOCAL_MODEL_TOOL_DEFINATIONS = [
         required: ['commandLine']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'readSkill',
+      description: `加载Skill完整的正文：任务与系统提示词中的Skill匹配使用
+      `,
+      parameters: {
+        type: 'object',
+        properties: { skill: { type: 'string', description: 'skill名称，目录名或者SKILL.md 的 frontmatter 中的 name' } },
+        required: ['skill']
+      }
+    }
   }
 ]
 
@@ -114,6 +128,7 @@ const toolHandleByName = {
   editFile: new EditFile(),
   listDir: new ListDir(),
   createDirectory: new CreateDirectory(),
+  readSkill: new ReadSkill(),
   runCommand: new RunCommand()
 }
 

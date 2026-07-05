@@ -1,13 +1,9 @@
 import path from 'path'
-import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const SERVER_SCCRIPT = path.join(__dirname, 'mcp_server.js')
+const SERVER_SCRIPT = fileURLToPath(new URL('./mcp_server.js', import.meta.url))
 
 let client = null
 
@@ -42,8 +38,8 @@ async function connectMcpServer(){
   // 创建 transport 用于连接MCP服务器
   const transport = new StdioClientTransport({
     command: process.execPath, //制定 Nodejs 的可执行文件路径
-    args: [SERVER_SCCRIPT], // 指定MCP服务器脚本
-    cwd: path.dirname(SERVER_SCCRIPT), // 指定当前工作目录
+    args: [SERVER_SCRIPT], // 指定MCP服务器脚本
+    cwd: path.dirname(SERVER_SCRIPT), // 指定当前工作目录
     stderr: 'pipe' , // 标准输出错误使用管道
   })
   // 创建一个 MCP 客户端
