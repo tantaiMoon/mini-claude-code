@@ -3,17 +3,18 @@ import { resolvePathInsideWorkDir } from '../utils/index.js';
 
 
 export class ListDir {
-  // 列出一个目录中的内容
+  // 列出工作区内目录内容，并标明每个条目是文件还是目录。
   async run({ path: relativePath }) {
     try {
       const absolute = resolvePathInsideWorkDir(relativePath);
-      // 目标路径的文件状态
+      // 先确认目标是目录，避免把文件误当成可遍历对象。
       const stat = await fsp.stat(absolute)
       if (!stat.isDirectory()) {
         return `目标路径不是一个目录:${relativePath}`
       }
-      const entries = await fsp.readdir(absolute, {withFileTypes: true}) // 读取目录下所有的条目，并获取类型信息
-      // 根据文件名称进行一个字典排序
+      // withFileTypes 直接返回类型信息，避免逐个 stat。
+      const entries = await fsp.readdir(absolute, {withFileTypes: true})
+      // 按名称排序，确保多次读取的输出稳定。
       entries.sort((a,b) => a.name.localeCompare(b.name))
       const rows = entries.map(entry => `${entry.isDirectory() ? '目录' : '文件'} ${entry.name}`);
       return rows.length > 0?rows.join('\n') : ''
@@ -22,4 +23,3 @@ export class ListDir {
     }
   }
 }
-

@@ -7,8 +7,7 @@ import { RunCommand } from './run-command.js'
 import { getMcpOpenAiTools } from './mcp_client.js'
 import { ReadSkill } from './read-skill.js'
 
-// 工具的 Schema，描述每个工具的用途和参数结构
-// 内置的自带工具列表
+// 内置工具的 OpenAI function schema，决定模型能看到的工具名称、用途和参数结构。
 const LOCAL_MODEL_TOOL_DEFINATIONS = [
   {
     type: 'function',
@@ -112,9 +111,11 @@ const LOCAL_MODEL_TOOL_DEFINATIONS = [
   }
 ]
 
+// 当前暴露给模型的工具定义；启动时只有本地工具，MCP 连接后会追加远端工具。
 let activeModelDefinitions = [...LOCAL_MODEL_TOOL_DEFINATIONS]
 
 function  refreshModelToolDefinitions(){
+  // MCP 工具定义来自服务器 listTools 结果，需要在连接后刷新。
   activeModelDefinitions = [...LOCAL_MODEL_TOOL_DEFINATIONS, ...getMcpOpenAiTools()]
 }
 
@@ -122,6 +123,7 @@ function getActiveModelDefinitions(){
   return activeModelDefinitions
 }
 
+// 工具名到本地执行器实例的映射，core.js 会根据模型返回的 name 查找执行器。
 const toolHandleByName = {
   readFile: new ReadText(),
   writeFile: new WriteText(),

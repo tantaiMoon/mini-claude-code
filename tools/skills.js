@@ -1,19 +1,18 @@
 import fsp from 'fs/promises'
 import path from 'path'
 import * as os from 'node:os'
-// 用于解析 skill。md 文件
 import matter from 'gray-matter'
 
-// 技能的存放目录，既有当前的项目目录，也有用户的根目录 .claude/skills
+// 技能搜索路径：项目级技能优先，用户主目录技能作为全局补充。
 const SKILLS_DIR = [
   path.join(process.cwd(), '.claude', 'skills'),
   path.join(os.homedir(), '.claude', 'skills')
 ]
 
-// 用与存放所有的技能
+// 技能注册表，key 是技能名称，value 是模型可读取的描述和正文。
 const skills = new Map
 
-// 加载所有的 skills
+// 重新扫描所有技能目录，返回当前可用技能列表。
 export async function loadSkills() {
   skills.clear()
   for (const dir of SKILLS_DIR) {
@@ -24,6 +23,7 @@ export async function loadSkills() {
 
 async function scanDir(dir) {
   try {
+    // 每个技能目录约定包含一个 SKILL.md。
     const entries = await fsp.readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
       if (!entry.isDirectory()) {
@@ -31,20 +31,22 @@ async function scanDir(dir) {
       }
       const fullPath = path.join(dir, entry.name, 'SKILL.md')
       const raw = await fsp.readFile(fullPath, 'utf-8')
-      // 解析 SKILL。md文件，获取元数据和正文
+      // frontmatter 提供 name/description，正文在匹配后通过 readSkill 注入。
       const { meta, body } = parseFrontmatter(raw)
-      // 技能名称，如果没有使用目录名称
+      // 未显式声明 name 时，使用目录名作为技能名。
       const name = meta.name || entry.name
       skills.set(name, {
         name,
         description: meta.description || name,
-        body // 节能正文
+        // 技能正文
+        body
       })
     }
   } catch (e) { }
 }
 
 function parseFrontmatter(raw) {
+  // gray-matter 会把 YAML frontmatter 和 Markdown 正文分离。
   const { data, content } = matter(raw)
   return {
     meta: data,
@@ -52,15 +54,13 @@ function parseFrontmatter(raw) {
   }
 }
 
-// 获取 skill
+// 根据名称查找技能，兼容用户传入 "/skillName" 的形式。
 export function getSkill(name) {
-  // 根据技能获取对应的技能
   return skills.get(String(name || '').replace(/^\//, '').trim()) || null
 }
 
-//丰富系统提示词
+// 把可用技能摘要附加到系统提示词，让模型知道何时调用 readSkill。
 export function enrichSystem(base) {
-  // 没有技能返回原始
   if (!skills.size) return base
   let lines = [
     ...skills.values().map(skill => `- ${ skill.name }: ${ skill.description }`)
@@ -68,15 +68,13 @@ export function enrichSystem(base) {
   return [base, '\nSkills(匹配时使用 readSkill 加载正文)', lines.join('\n')].join('\n')
 }
 
-// 解析 斜杠 开头的命令
+// 解析 /skillName args 形式的输入；未命中技能时返回 null，按普通文本处理。
 export function parseSlash(line) {
   const t = line.trim()
-  // 如果不是以斜杠开头返回 null
   if (!t.startsWith('/')) return null
   const rest = t.slice(1)
-  // 查找第一个空格
   const sp = rest.indexOf(' ')
-  // 获取目标命令
+  // 第一个空格前是技能名，空格后保留为用户补充参数。
   const cmd = (sp === -1 ? rest : rest.slice(0, sp)).trim()
   const skill = getSkill(cmd)
   if (!skill) return null

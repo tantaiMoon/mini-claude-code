@@ -10,19 +10,19 @@ import { callMcpTool, isMcpTool } from './tools/mcp_client.js'
 
 dotenv.config({ override: true })
 
+// OpenAI 兼容客户端统一从环境变量读取网关地址和密钥。
 const openaiClient = new OpenAI({
   baseURL: process.env.BASE_URL,
   apiKey: process.env.API_KEY
 })
 
-// 定义异步函数，用于执行一次工具调用
-/*
- * @param toolCallPayload {index: number, id: string, type: 'function', function :{name: string, arguments: '{...}'}
- * */
+// 执行模型返回的一次工具调用，并把执行结果转换为 OpenAI tool 消息。
+// toolCallPayload 形如 { id, type: 'function', function: { name, arguments } }。
 export async function executeSingleToolCall(toolCallPayload) {
   const name = toolCallPayload.function.name
   let parsedArgs = {}
   try {
+    // 模型返回的 arguments 是 JSON 字符串，解析失败时降级为空参数，避免中断整轮对话。
     parsedArgs = JSON.parse(toolCallPayload.function.arguments)
   } catch (e) {
     parsedArgs = {}
@@ -30,11 +30,11 @@ export async function executeSingleToolCall(toolCallPayload) {
   console.log(`工具${ name }被调用`)
   console.log(`参数：${ JSON.stringify(parsedArgs) }`)
 
-  // 根据工具名称获取对应的处理器
+  // 本地工具从注册表查找，MCP 工具交给 MCP 客户端转发。
   const handler = toolHandleByName[name]
   let textResult
   if (isMcpTool(name)) {
-  //   是不是 MCP 服务器工具,如果是则尝试调用MCP服务器工具
+    // MCP 工具名称来自已连接服务器的工具列表。
     textResult = await callMcpTool(name, parsedArgs)
   } else {
     try {
@@ -45,7 +45,7 @@ export async function executeSingleToolCall(toolCallPayload) {
   }
 
 
-  // 构建并返回本次工具调用的完整回复消息对象
+  // 返回格式必须带上 tool_call_id，模型下一轮才能关联到对应的工具调用。
   return {
     role: 'tool',
     tool_call_id: toolCallPayload.id,
@@ -55,45 +55,41 @@ export async function executeSingleToolCall(toolCallPayload) {
 }
 
 
-// 定义异步函数，驱动智能体连续推理直到获得文字回复或超过最大步数
+// 驱动 Agent 循环：模型可连续请求工具，直到生成最终文本回复或超过最大步数。
 export async function runAgentUtilReplyMaxSteps(messages) {
-  let step = 0 // 初始化步数器
-  // 循环直到步数超过最大步长限制
+  let step = 0
   while (step < CONFIG.agentMaxSteps) {
     step++
     console.log(`\n请求模型中......`)
-    // 调用 openai 客户端向大模型发送所有消息，生成聊天内容
+    // 每一轮都带上完整消息历史和当前可用工具定义。
     const completion = await openaiClient.chat.completions.create({
       model: 'deepseek-v4-pro',
       messages: messages,
-      tools: getActiveModelDefinitions(), // 给大模型的工具函数定义
-      tool_choice: 'auto' // 工具的选择方式为自动
+      tools: getActiveModelDefinitions(),
+      tool_choice: 'auto'
     })
-    // 获取助手回复的消息
     const assistantMessage = completion.choices[0].message
     // console.log('assistant: ', JSON.stringify(assistantMessage,null,2))
     messages.push(assistantMessage)
 
-    const calls = assistantMessage.tool_calls // 获取本轮消息产生的工具调用
-    // 没有调用工具的情况下
+    // 没有工具调用说明模型已经给出最终回复。
+    const calls = assistantMessage.tool_calls
     if (!calls || calls.length === 0) {
       return assistantMessage
     }
-    // 判断是否存在命令执行，决定是串行调用还是并行调用
+    // runCommand 可能影响全局工作区或后台任务状态，因此包含它时按顺序执行。
     const sequentail = calls.some(call => call.function.name === 'runCommand')
     let toolResponses = []
     if (sequentail) {
-      //   串行依次执行
       for (const tool of calls) {
         const res = await executeSingleToolCall(tool)
         toolResponses.push(res)
       }
     } else {
-      // 并发执行每个工具调用，等待所有的工具调用结果返回
-      //并发执行
+      // 只读或互不依赖的工具调用并发执行，缩短单轮等待时间。
       toolResponses = await Promise.all(calls.map(executeSingleToolCall))
     }
-    // 将所有的消息提示添加到消息列表中
+    // 工具结果追加回消息列表，供模型下一轮继续推理。
     for (const res of toolResponses) {
       messages.push(res)
     }

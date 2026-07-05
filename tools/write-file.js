@@ -4,7 +4,7 @@ import { resolvePathInsideWorkDir } from '../utils/index.js';
 
 
 class WriteText {
-  // 读取文件路径指定的内容
+  // 写入工作区内文件；父目录不存在时先递归创建。
   async run({ path: relativePath, content }) {
     try {
       const absolute = resolvePathInsideWorkDir(relativePath);

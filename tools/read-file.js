@@ -3,7 +3,7 @@ import { resolvePathInsideWorkDir } from '../utils/index.js';
 
 
 class ReadText {
-  // 读取文件路径指定的内容
+  // 读取工作区内的文本文件；路径越界会由 resolvePathInsideWorkDir 拦截。
   async run({ path: relativePath }) {
     try {
       return await fsp.readFile(resolvePathInsideWorkDir(relativePath), 'utf-8');
